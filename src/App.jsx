@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import AssumptionsPanel from './components/AssumptionsPanel';
 import ResultsPanel from './components/ResultsPanel';
 import Header from './components/Header';
+import AIAssistant from './components/AIAssistant';
 import { calcNOI, calcCapRate, calcDCF, calcComparables, fmt } from './utils/valuations';
 
 const PROPERTY_TYPES = [
@@ -12,25 +13,19 @@ const PROPERTY_TYPES = [
 ];
 
 const DEFAULT_ASSUMPTIONS = {
-  // Property
   propertyType: 'multifamily',
   address: '',
   sqft: 5000,
   purchasePrice: 1500000,
-  // Income
   grossRent: 180000,
   vacancyRate: 5,
   otherIncome: 0,
-  // Expenses
   operatingExpenses: 54000,
-  // Cap Rate
   marketCapRate: 5.5,
-  // DCF
   noiGrowthRate: 2.5,
   discountRate: 8,
   exitCapRate: 6,
   holdPeriod: 10,
-  // Comparables
   comps: [
     { address: '123 Main St', salePrice: 1450000, sqft: 4800 },
     { address: '456 Oak Ave', salePrice: 1620000, sqft: 5200 },
@@ -69,7 +64,6 @@ export default function App() {
     });
 
     const impliedCapRate = assumptions.purchasePrice > 0 ? (noi / assumptions.purchasePrice) * 100 : null;
-    const cashOnCash = assumptions.purchasePrice > 0 ? (noi / assumptions.purchasePrice) * 100 : null;
 
     const values = [
       capRateResult?.value,
@@ -83,7 +77,6 @@ export default function App() {
       noi,
       effectiveGrossIncome,
       impliedCapRate,
-      cashOnCash,
       capRateResult,
       dcfResult,
       compResult,
@@ -113,6 +106,7 @@ export default function App() {
         <AssumptionsPanel assumptions={assumptions} update={update} propertyType={activeType} />
         <ResultsPanel results={results} assumptions={assumptions} fmt={fmt} />
       </div>
+      <AIAssistant assumptions={assumptions} results={results} fmt={fmt} />
     </div>
   );
 }
