@@ -17,8 +17,9 @@ export default function AIAssistant({ assumptions, results, fmt }) {
   }, [messages]);
 
   const buildContext = () => {
+    const totalOpex = results.totalOperatingExpenses;
     return `You are a real estate investment analyst assistant built into a valuation tool called PropVal.
-    
+
 Current property being analyzed:
 - Property Type: ${assumptions.propertyType}
 - Address: ${assumptions.address || 'Not specified'}
@@ -26,21 +27,26 @@ Current property being analyzed:
 - Purchase Price: ${fmt.currency(assumptions.purchasePrice)}
 - Annual Gross Rent: ${fmt.currency(assumptions.grossRent)}
 - Vacancy Rate: ${assumptions.vacancyRate}%
-- Operating Expenses: ${fmt.currency(assumptions.operatingExpenses)}
+- Total Operating Expenses: ${fmt.currency(totalOpex)} (Tax: ${fmt.currency(assumptions.propertyTax)}, Insurance: ${fmt.currency(assumptions.insurance)}, Mgmt: ${assumptions.managementFeePct}%, Maintenance: ${fmt.currency(assumptions.maintenance)}, CapEx: ${fmt.currency(assumptions.capexReserve)})
 - Market Cap Rate: ${assumptions.marketCapRate}%
 - Hold Period: ${assumptions.holdPeriod} years
 - Discount Rate: ${assumptions.discountRate}%
 - NOI Growth Rate: ${assumptions.noiGrowthRate}%
 - Exit Cap Rate: ${assumptions.exitCapRate}%
+- Financing: ${assumptions.ltv}% LTV, ${assumptions.interestRate}% rate, ${assumptions.amortizationYears}-yr amort
 
 Valuation Results:
 - Net Operating Income (NOI): ${fmt.currency(results.noi)}
 - Implied Cap Rate: ${fmt.pct(results.impliedCapRate)}
+- Gross Rent Multiplier (GRM): ${results.grm != null ? results.grm.toFixed(2) + 'x' : 'N/A'}
 - Cap Rate Valuation: ${fmt.currency(results.capRateResult?.value)}
 - DCF Valuation: ${fmt.currency(results.dcfResult?.value)}
 - Estimated IRR: ${results.dcfResult?.irr != null ? results.dcfResult.irr + '%' : 'N/A'}
 - Comparable Sales Value: ${fmt.currency(results.compResult?.medianValue)}
 - Blended Average Value: ${fmt.currency(results.avgValue)}
+- Annual Debt Service: ${fmt.currency(results.financingResult?.annualDebtService)}
+- Cash-on-Cash Return: ${results.financingResult?.cashOnCash != null ? results.financingResult.cashOnCash + '%' : 'N/A'}
+- DSCR: ${results.financingResult?.dscr != null ? results.financingResult.dscr + 'x' : 'N/A'}
 
 Be concise, direct, and use specific numbers from the analysis above. Focus on practical investment insights.`;
   };
@@ -54,12 +60,10 @@ Be concise, direct, and use specific numbers from the analysis above. Focus on p
     setLoading(true);
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
           system: buildContext(),
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
         }),

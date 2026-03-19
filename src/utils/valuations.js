@@ -80,6 +80,30 @@ export function calcGRM({ purchasePrice, annualRent }) {
   return purchasePrice / annualRent;
 }
 
+export function calcFinancing({ purchasePrice, noi, ltv, interestRate, amortizationYears }) {
+  if (!purchasePrice || !noi || !ltv || !interestRate || !amortizationYears) return null;
+
+  const loanAmount = purchasePrice * (ltv / 100);
+  const equityInvested = purchasePrice * (1 - ltv / 100);
+  const monthlyRate = interestRate / 100 / 12;
+  const n = amortizationYears * 12;
+
+  // Standard amortization formula
+  const monthlyPayment = loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1);
+  const annualDebtService = monthlyPayment * 12;
+
+  const cashOnCash = equityInvested > 0 ? ((noi - annualDebtService) / equityInvested) * 100 : null;
+  const dscr = annualDebtService > 0 ? noi / annualDebtService : null;
+
+  return {
+    loanAmount: Math.round(loanAmount),
+    equityInvested: Math.round(equityInvested),
+    annualDebtService: Math.round(annualDebtService),
+    cashOnCash: cashOnCash != null ? Math.round(cashOnCash * 100) / 100 : null,
+    dscr: dscr != null ? Math.round(dscr * 100) / 100 : null,
+  };
+}
+
 export function calcComparables({ comps, subject }) {
   // comps: [{ address, salePrice, sqft, propType }]
   // subject: { sqft }

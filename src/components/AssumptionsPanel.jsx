@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-const SECTIONS = ['Property', 'Income', 'Expenses', 'DCF Settings', 'Comparables'];
-
 export default function AssumptionsPanel({ assumptions, update, propertyType }) {
   const [openSection, setOpenSection] = useState('Property');
 
@@ -64,11 +62,42 @@ export default function AssumptionsPanel({ assumptions, update, propertyType }) 
 
         {/* EXPENSES */}
         <Section title="Expenses" open={openSection === 'Expenses'} onToggle={() => toggle('Expenses')}>
-          <Field label="Annual Operating Expenses ($)" hint="Taxes, insurance, maintenance, mgmt">
-            <input type="number" value={assumptions.operatingExpenses} onChange={e => update('operatingExpenses', +e.target.value)} />
+          <FieldRow>
+            <Field label="Property Tax ($)">
+              <input type="number" value={assumptions.propertyTax} onChange={e => update('propertyTax', +e.target.value)} />
+            </Field>
+            <Field label="Insurance ($)">
+              <input type="number" value={assumptions.insurance} onChange={e => update('insurance', +e.target.value)} />
+            </Field>
+          </FieldRow>
+          <Field label="Management Fee (%)" hint="Applied to effective gross income">
+            <input type="number" step="0.1" value={assumptions.managementFeePct} onChange={e => update('managementFeePct', +e.target.value)} />
           </Field>
+          <FieldRow>
+            <Field label="Maintenance ($)">
+              <input type="number" value={assumptions.maintenance} onChange={e => update('maintenance', +e.target.value)} />
+            </Field>
+            <Field label="CapEx Reserve ($)">
+              <input type="number" value={assumptions.capexReserve} onChange={e => update('capexReserve', +e.target.value)} />
+            </Field>
+          </FieldRow>
           <Field label="Market Cap Rate (%)">
             <input type="number" step="0.1" value={assumptions.marketCapRate} onChange={e => update('marketCapRate', +e.target.value)} />
+          </Field>
+        </Section>
+
+        {/* FINANCING */}
+        <Section title="Financing" open={openSection === 'Financing'} onToggle={() => toggle('Financing')}>
+          <FieldRow>
+            <Field label="Loan-to-Value (%)">
+              <input type="number" step="1" min="0" max="100" value={assumptions.ltv} onChange={e => update('ltv', +e.target.value)} />
+            </Field>
+            <Field label="Interest Rate (%)">
+              <input type="number" step="0.1" value={assumptions.interestRate} onChange={e => update('interestRate', +e.target.value)} />
+            </Field>
+          </FieldRow>
+          <Field label="Amortization Period (years)">
+            <input type="number" step="1" min="1" max="40" value={assumptions.amortizationYears} onChange={e => update('amortizationYears', +e.target.value)} />
           </Field>
         </Section>
 

@@ -3,7 +3,7 @@ import AssumptionsPanel from './components/AssumptionsPanel';
 import ResultsPanel from './components/ResultsPanel';
 import Header from './components/Header';
 import AIAssistant from './components/AIAssistant';
-import { calcNOI, calcCapRate, calcDCF, calcComparables, fmt } from './utils/valuations';
+import { calcNOI, calcCapRate, calcDCF, calcComparables, calcGRM, calcFinancing, fmt } from './utils/valuations';
 
 const PROPERTY_TYPES = [
   { id: 'residential', label: 'Residential', icon: '⌂' },
@@ -20,12 +20,22 @@ const DEFAULT_ASSUMPTIONS = {
   grossRent: 180000,
   vacancyRate: 5,
   otherIncome: 0,
-  operatingExpenses: 54000,
+  // Operating expense line items
+  propertyTax: 18000,
+  insurance: 6000,
+  managementFeePct: 8,
+  maintenance: 12000,
+  capexReserve: 4000,
+  // Valuation settings
   marketCapRate: 5.5,
   noiGrowthRate: 2.5,
   discountRate: 8,
   exitCapRate: 6,
   holdPeriod: 10,
+  // Financing
+  ltv: 75,
+  interestRate: 6.5,
+  amortizationYears: 30,
   comps: [
     { address: '123 Main St', salePrice: 1450000, sqft: 4800 },
     { address: '456 Oak Ave', salePrice: 1620000, sqft: 5200 },
@@ -41,10 +51,21 @@ export default function App() {
     setAssumptions(prev => ({ ...prev, [key]: value }));
 
   const results = useMemo(() => {
+    const grossRentPlusOther = assumptions.grossRent + (assumptions.otherIncome || 0);
+    // Compute EGI first so management fee (% of EGI) can be calculated
+    const egi = grossRentPlusOther * (1 - assumptions.vacancyRate / 100);
+    const managementFee = egi * ((assumptions.managementFeePct || 0) / 100);
+    const totalOperatingExpenses =
+      (assumptions.propertyTax || 0) +
+      (assumptions.insurance || 0) +
+      managementFee +
+      (assumptions.maintenance || 0) +
+      (assumptions.capexReserve || 0);
+
     const { noi, effectiveGrossIncome } = calcNOI({
-      grossRent: assumptions.grossRent + (assumptions.otherIncome || 0),
+      grossRent: grossRentPlusOther,
       vacancyRate: assumptions.vacancyRate,
-      operatingExpenses: assumptions.operatingExpenses,
+      operatingExpenses: totalOperatingExpenses,
     });
 
     const capRateResult = calcCapRate({ noi, capRate: assumptions.marketCapRate });
@@ -65,6 +86,16 @@ export default function App() {
 
     const impliedCapRate = assumptions.purchasePrice > 0 ? (noi / assumptions.purchasePrice) * 100 : null;
 
+    const grm = calcGRM({ purchasePrice: assumptions.purchasePrice, annualRent: assumptions.grossRent });
+
+    const financingResult = calcFinancing({
+      purchasePrice: assumptions.purchasePrice,
+      noi,
+      ltv: assumptions.ltv,
+      interestRate: assumptions.interestRate,
+      amortizationYears: assumptions.amortizationYears,
+    });
+
     const values = [
       capRateResult?.value,
       dcfResult?.value,
@@ -81,6 +112,10 @@ export default function App() {
       dcfResult,
       compResult,
       avgValue,
+      grm,
+      financingResult,
+      totalOperatingExpenses,
+      managementFee,
     };
   }, [assumptions]);
 

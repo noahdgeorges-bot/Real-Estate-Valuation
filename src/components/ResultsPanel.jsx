@@ -1,7 +1,7 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 export default function ResultsPanel({ results, assumptions, fmt }) {
-  const { noi, effectiveGrossIncome, impliedCapRate, capRateResult, dcfResult, compResult, avgValue } = results;
+  const { noi, effectiveGrossIncome, impliedCapRate, capRateResult, dcfResult, compResult, avgValue, grm, financingResult, totalOperatingExpenses, managementFee } = results;
 
   const valuations = [
     {
@@ -43,12 +43,13 @@ export default function ResultsPanel({ results, assumptions, fmt }) {
   const cashFlowData = dcfResult?.cashFlows || [];
 
   return (
-    <main style={styles.main}>
+    <main style={styles.main} id="results-panel">
       {/* Summary strip */}
       <div style={styles.summaryStrip}>
         <Stat label="Net Operating Income" value={fmt.currency(noi)} accent />
         <Stat label="Eff. Gross Income" value={fmt.currency(effectiveGrossIncome)} />
         <Stat label="Implied Cap Rate" value={fmt.pct(impliedCapRate)} />
+        <Stat label="Gross Rent Multiplier" value={grm != null ? grm.toFixed(2) + 'x' : '—'} />
         <Stat label="Blended Est. Value" value={fmt.currency(avgValue)} accent gold />
       </div>
 
@@ -58,6 +59,55 @@ export default function ResultsPanel({ results, assumptions, fmt }) {
           <ValuationCard key={v.method} {...v} fmt={fmt} />
         ))}
       </div>
+
+      {/* Financing Summary */}
+      {financingResult && (
+        <div style={styles.financingCard}>
+          <div style={styles.financingHeader}>
+            <span style={styles.chartTitle}>Financing Analysis</span>
+            <span style={styles.chartSub}>
+              {assumptions.ltv}% LTV · {assumptions.interestRate}% · {assumptions.amortizationYears}-yr amort
+            </span>
+          </div>
+          <div style={styles.financingGrid}>
+            <FinancingStat
+              label="Annual Debt Service"
+              value={fmt.currency(financingResult.annualDebtService)}
+              sub={`Loan: ${fmt.currency(financingResult.loanAmount)}`}
+              color="#c9a84c"
+            />
+            <FinancingStat
+              label="Cash-on-Cash Return"
+              value={financingResult.cashOnCash != null ? `${financingResult.cashOnCash.toFixed(2)}%` : '—'}
+              sub={`Equity: ${fmt.currency(financingResult.equityInvested)}`}
+              color={financingResult.cashOnCash >= 0 ? '#3ecf8e' : '#f87171'}
+            />
+            <FinancingStat
+              label="Debt Service Coverage"
+              value={financingResult.dscr != null ? financingResult.dscr.toFixed(2) + 'x' : '—'}
+              sub={financingResult.dscr >= 1.25 ? 'Healthy coverage' : financingResult.dscr >= 1 ? 'Marginal coverage' : 'Below breakeven'}
+              color={financingResult.dscr >= 1.25 ? '#3ecf8e' : financingResult.dscr >= 1 ? '#c9a84c' : '#f87171'}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Operating Expense Breakdown */}
+      {totalOperatingExpenses != null && (
+        <div style={styles.expenseCard}>
+          <div style={styles.financingHeader}>
+            <span style={styles.chartTitle}>Operating Expense Breakdown</span>
+            <span style={styles.chartSub}>Total: {fmt.currency(totalOperatingExpenses)}</span>
+          </div>
+          <div style={styles.expenseGrid}>
+            <ExpenseRow label="Property Tax" value={fmt.currency(assumptions.propertyTax)} />
+            <ExpenseRow label="Insurance" value={fmt.currency(assumptions.insurance)} />
+            <ExpenseRow label={`Management (${assumptions.managementFeePct}% of EGI)`} value={fmt.currency(managementFee)} />
+            <ExpenseRow label="Maintenance & Repairs" value={fmt.currency(assumptions.maintenance)} />
+            <ExpenseRow label="CapEx Reserve" value={fmt.currency(assumptions.capexReserve)} />
+          </div>
+        </div>
+      )}
 
       {/* DCF Cash Flow Chart */}
       {cashFlowData.length > 0 && (
@@ -94,6 +144,13 @@ export default function ResultsPanel({ results, assumptions, fmt }) {
           <ValuationRange valuations={valuations} avg={avgValue} fmt={fmt} />
         </div>
       )}
+
+      {/* Export PDF button */}
+      <div style={styles.exportRow}>
+        <button style={styles.exportBtn} onClick={() => window.print()}>
+          ↓ Export PDF
+        </button>
+      </div>
     </main>
   );
 }
@@ -123,6 +180,25 @@ function Stat({ label, value, accent, gold }) {
     <div style={{ ...styles.stat, ...(accent ? styles.statAccent : {}), ...(gold ? styles.statGold : {}) }}>
       <div style={styles.statLabel}>{label}</div>
       <div style={{ ...styles.statValue, ...(gold ? { color: 'var(--gold-light)' } : {}) }}>{value}</div>
+    </div>
+  );
+}
+
+function FinancingStat({ label, value, sub, color }) {
+  return (
+    <div style={styles.financingStat}>
+      <div style={styles.statLabel}>{label}</div>
+      <div style={{ ...styles.financingValue, color }}>{value}</div>
+      <div style={styles.financingSub}>{sub}</div>
+    </div>
+  );
+}
+
+function ExpenseRow({ label, value }) {
+  return (
+    <div style={styles.expenseRow}>
+      <span style={styles.expenseLabel}>{label}</span>
+      <span style={styles.expenseValue}>{value}</span>
     </div>
   );
 }
@@ -180,7 +256,7 @@ const styles = {
   },
   summaryStrip: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: 'repeat(5, 1fr)',
     gap: 1,
     background: 'var(--border)',
     borderRadius: 'var(--radius)',
@@ -259,6 +335,68 @@ const styles = {
     fontFamily: 'var(--font-mono)',
     fontSize: 12,
     color: 'var(--text-secondary)',
+  },
+  financingCard: {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderTop: '3px solid var(--gold)',
+    borderRadius: 'var(--radius)',
+    padding: '20px',
+  },
+  financingHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  financingGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 1,
+    background: 'var(--border)',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  financingStat: {
+    background: 'var(--bg-secondary)',
+    padding: '14px 18px',
+  },
+  financingValue: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 22,
+    fontWeight: 600,
+    margin: '6px 0 4px',
+  },
+  financingSub: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+  },
+  expenseCard: {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    padding: '20px',
+  },
+  expenseGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  expenseRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '6px 0',
+    borderBottom: '1px solid var(--border)',
+  },
+  expenseLabel: {
+    fontSize: 12,
+    color: 'var(--text-secondary)',
+  },
+  expenseValue: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 13,
+    color: 'var(--text-primary)',
   },
   chartSection: {
     background: 'var(--bg-card)',
@@ -358,5 +496,23 @@ const styles = {
     fontSize: 12,
     color: 'var(--text-muted)',
     fontFamily: 'var(--font-mono)',
+  },
+  exportRow: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    paddingBottom: 8,
+  },
+  exportBtn: {
+    padding: '10px 22px',
+    background: 'transparent',
+    border: '1px solid var(--border-light)',
+    borderRadius: 'var(--radius)',
+    color: 'var(--text-secondary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    letterSpacing: 0.3,
   },
 };
